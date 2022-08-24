@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>2021/03/11 10:51:24.000.232,=C:\Users\Programador 1\Documents\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
+    <Transaction>2022/08/23 18:11:15.000.478,=C:\Users\Programador 1\Documents\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
+    <Transaction>2022/08/23 18:13:33.000.724,C:\Users\Programador 1\Documents\WKTeste\src\MainForm.pas=C:\Users\Programador 1\Documents\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
+    <Transaction>2022/08/23 18:13:33.000.724,C:\Users\Programador 1\Documents\WKTeste\src\MainForm.dfm=C:\Users\Programador 1\Documents\Embarcadero\Studio\Projects\Unit1.dfm</Transaction>
+    <Transaction>2022/08/23 18:13:46.000.041,C:\Users\Programador 1\Documents\WKTeste\PedidoVendaWKTeste.dproj=C:\Users\Programador 1\Documents\Embarcadero\Studio\Projects\Project1.dproj</Transaction>
+    <Transaction>2022/08/23 18:14:04.000.294,=C:\Users\Programador 1\Documents\WKTeste\Unit1.pas</Transaction>
+    <Transaction>2022/08/23 18:14:24.000.991,C:\Users\Programador 1\Documents\WKTeste\src\MainDataModule.dfm=C:\Users\Programador 1\Documents\WKTeste\Unit1.dfm</Transaction>
+    <Transaction>2022/08/23 18:14:24.000.991,C:\Users\Programador 1\Documents\WKTeste\src\MainDataModule.pas=C:\Users\Programador 1\Documents\WKTeste\Unit1.pas</Transaction>
+    <Transaction>2022/08/23 18:17:23.000.265,=C:\Users\Programador 1\Documents\WKTeste\Unit1.pas</Transaction>
+    <Transaction>2022/08/23 18:17:56.000.104,=C:\Users\Programador 1\Documents\WKTeste\Unit2.pas</Transaction>
+    <Transaction>2022/08/23 18:19:05.000.927,C:\Users\Programador 1\Documents\WKTeste\src\GlobalData.pas=C:\Users\Programador 1\Documents\WKTeste\Unit2.pas</Transaction>
+    <Transaction>2022/08/23 18:20:05.000.139,C:\Users\Programador 1\Documents\WKTeste\src\Functions.pas=C:\Users\Programador 1\Documents\WKTeste\Unit1.pas</Transaction>
+  </Transactions>
+</BorlandProject>

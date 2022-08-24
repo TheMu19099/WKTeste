@@ -1,0 +1,465 @@
+unit MainForm;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, GlobalData, MainDataModule,
+  FireDAC.Phys.MySQLDef, Vcl.StdCtrls, Data.DB, Vcl.Buttons, Vcl.Grids,
+  Vcl.DBGrids, Vcl.Mask, Vcl.ComCtrls, Vcl.DBCtrls;
+
+type
+  TfrmMain = class(TForm)
+    GroupBox1: TGroupBox;
+    Label1: TLabel;
+    edtBuscaProdutoNome: TEdit;
+    gdBuscaProduto: TDBGrid;
+    btPesquisarProduto: TBitBtn;
+    Label2: TLabel;
+    edtBuscaProdutoCodigo: TEdit;
+    btLimparFiltros: TBitBtn;
+    edtBuscaQuantidade: TEdit;
+    Label3: TLabel;
+    Label4: TLabel;
+    edtBuscaVlrUnitario: TEdit;
+    Label5: TLabel;
+    btInserirProdutoVenda: TBitBtn;
+    lbProdutoSelecionado: TLabel;
+    GroupBox2: TGroupBox;
+    gdProdutos: TDBGrid;
+    GroupBox3: TGroupBox;
+    statusBar: TStatusBar;
+    edtCodigoCliente: TEdit;
+    Label6: TLabel;
+    btGravarPedido: TBitBtn;
+    lcbClientes: TDBLookupComboBox;
+    btLimparPesquisaCliente: TSpeedButton;
+    gdPedidos: TDBGrid;
+    btCarregarPedidos: TBitBtn;
+    edtApagarPedidoNmr: TEdit;
+    lblPedidoN: TLabel;
+    btApagarPedido: TBitBtn;
+    procedure FormActivate(Sender: TObject);
+    procedure btPesquisarProdutoClick(Sender: TObject);
+    procedure edtBuscaProdutoNomeKeyPress(Sender: TObject; var Key: Char);
+    procedure edtBuscaProdutoCodigoKeyPress(Sender: TObject; var Key: Char);
+    procedure btLimparFiltrosClick(Sender: TObject);
+    procedure gdBuscaProdutoDblClick(Sender: TObject);
+    procedure btInserirProdutoVendaClick(Sender: TObject);
+    procedure gdProdutosKeyPress(Sender: TObject; var Key: Char);
+    procedure gdProdutosKeyDown(Sender: TObject; var Key: Word;
+      Shift: TShiftState);
+    procedure btLimparPesquisaClienteClick(Sender: TObject);
+    procedure edtCodigoClienteChange(Sender: TObject);
+    procedure btGravarPedidoClick(Sender: TObject);
+    procedure btCarregarPedidosClick(Sender: TObject);
+    procedure gdPedidosDblClick(Sender: TObject);
+    procedure btApagarPedidoClick(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+
+    DBConfig: TServerConfig;
+  end;
+
+var
+  frmMain: TfrmMain;
+  ValorTotalPedido: Double;
+
+implementation
+
+uses
+  Functions;
+
+{$R *.dfm}
+
+procedure TfrmMain.btApagarPedidoClick(Sender: TObject);
+begin
+  if(MessageBox(Application.Handle, Pchar(Format('Tem certeza que você deseja apagar o pedido Nº %s?',
+    [dmMain.qrPedidos.FieldByName('numero').AsString])), 'WK Teste',
+    MB_ICONEXCLAMATION+MB_YESNO) = ID_YES) then
+  begin //eu poderia apagar permanente os registros usando delete from table where numero = numero_pedido
+        //porém, para ficar mais profissional, vamos utilizar-se do recurso de SoftDelete
+        //muito usado quando não se pode apagar dados, mas sim apenas "deixar de aparecer no grid"
+        //para que em algum futuro, tenha-se os registros e logs de quem apagou, quando, etc etc
+        //em um grande sistema ERP ou PDV, não se pode apagar dados dos clientes.
+    with dmMain do
+    begin
+      qrAux.Close;
+
+      qrAux.SQL.Clear;
+
+      qrAux.SQL.Add('update pedido_dados_gerais set deleted = 1 where numero = :pnumero');
+      qrAux.ParamByName('pnumero').AsString := dmMain.qrPedidos.FieldByName('numero').AsString;
+      qrAux.ExecSQL;
+
+      TFunctions.ShowMsg('Pedido apagado com sucesso.', Application.Handle, MB_ICONINFORMATION);
+
+      gdPedidos.DataSource.DataSet.Refresh;
+    end;
+
+  end;
+end;
+
+procedure TfrmMain.btCarregarPedidosClick(Sender: TObject);
+begin
+  if((Trim(edtCodigoCliente.Text) = '') or (StrToInt(edtCodigoCliente.Text) <= 0)) then
+  begin //mostrar todos pedidos
+    dmMain.qrPedidos.Close;
+    dmMain.qrPedidos.Filtered := False;
+    dmMain.qrPedidos.Filter := '';
+    dmMain.qrPedidos.Open();
+  end
+  else //mostrar apenas pedidos do cliente selecionado
+  begin
+    dmMain.qrPedidos.Close;
+    dmMain.qrPedidos.Filtered := False;
+    dmMain.qrPedidos.Filter := 'codigo = ' + edtCodigoCliente.Text;
+    dmMain.qrPedidos.Filtered := True;
+    dmMain.qrPedidos.Open();
+  end;
+end;
+
+procedure TfrmMain.btGravarPedidoClick(Sender: TObject);
+var
+  NewNumeroPedido: Integer;
+  I: Integer;
+  bk: TBookMark;
+begin
+  if((Trim(edtCodigoCliente.Text) = '') or (StrToInt(edtCodigoCliente.Text) <= 0)) then
+  begin
+    TFunctions.ShowMsg('Por favor selecione um cliente primeiro.',
+      Application.Handle, MB_ICONEXCLAMATION);
+    Exit;
+  end;
+
+  with dmMain do
+  begin  //ver transação aqui
+    qrAux.Close;
+
+    qrAux.SQL.Clear;
+
+    qrAux.SQL.Add(Format('select codigo from clientes where codigo = %d', [StrToInt(edtCodigoCliente.Text)]));
+    qrAux.Open();
+
+    if(qrAux.RowsAffected = 0) then
+    begin
+      TFunctions.ShowMsg('Cliente inexistente!', Application.Handle, MB_ICONERROR);
+      Exit;
+    end;
+
+    if(mtbProdutos.RecordCount = 0) then
+    begin
+      TFunctions.ShowMsg('Pedido está sem produtos, adicione-os primeiro.',
+        Application.Handle, MB_ICONERROR);
+      Exit;
+    end;
+
+    qrAux.Close;
+
+    qrAux.SQL.Clear;
+
+    qrAux.SQL.Add(Format('select lpad((max(codigo)+1), 5, %s) as auto_increment from pedido_dados_gerais', ['0']));
+    qrAux.Open();
+
+    if(qrAux.RowsAffected <= 0) then
+    begin
+      TFunctions.ShowMsg('Erro catastrófico, não foi possível retornar o auto_incremento da tabela pedidos_dados_gerais.',
+        Application.Handle, MB_ICONERROR);
+      Exit;
+    end;
+
+    NewNumeroPedido := ('2022' + qrAux.FieldByName('auto_increment').AsString).ToInteger();
+    //formato do numero do pedido ANO VIGENTE + 5 digitos autoincremento tabela de pedidos
+
+    qrAux.Close;
+
+    qrAux.SQL.Clear;
+
+    qrAux.SQL.Add(Format(
+    'insert into pedido_dados_gerais (numero, data_emissao, codigo_cliente, valor_total)'+
+    ' VALUES (%d, %s, %d, %s)', [NewNumeroPedido, QuotedStr(FormatDateTime('yyyy-mm-dd', Now)),
+      StrToInt(edtCodigoCliente.Text),
+      StringReplace(FormatFloat('#,0.00;-#,0.00', ValorTotalPedido), ',', '.', [rfReplaceAll])]));
+    qrAux.ExecSQL;
+
+    qrAux.Close;
+
+    bk := mtbProdutos.GetBookmark;
+    mtbProdutos.DisableControls;
+
+    mtbProdutos.First;
+    for I := 0 to mtbProdutos.RecordCount-1 do
+    begin
+      qrAux.SQL.Clear;
+      qrAux.SQL.Add(Format('insert into pedido_produtos (numero_pedido, codigo_produto, quantidade, valor_unitario, valor_total)' +
+        ' VALUES (%d, %d, %s, %s, %s)',
+        [NewNumeroPedido, mtbProdutos.FieldByName('codigo').AsInteger,
+        StringReplace(FormatFloat('#,0.00;-#,0.00', mtbProdutos.FieldByName('quantidade').AsFloat), ',', '.', [rfReplaceAll]),
+        StringReplace(FormatFloat('#,0.00;-#,0.00', mtbProdutos.FieldByName('valor_unitario').AsFloat), ',', '.', [rfReplaceAll]),
+        StringReplace(FormatFloat('#,0.00;-#,0.00', mtbProdutos.FieldByName('valor_total').AsFloat), ',', '.', [rfReplaceAll])]));
+      qrAux.ExecSQL;
+
+      mtbProdutos.Next;
+    end;
+
+    mtbProdutos.EnableControls;
+    mtbProdutos.GotoBookmark(bk);
+
+    qrAux.Close;
+
+    TFunctions.ShowMsg('O pedido foi confirmado com sucesso.', Application.Handle, MB_ICONINFORMATION);
+  end;
+end;
+
+procedure TfrmMain.btInserirProdutoVendaClick(Sender: TObject);
+begin
+  with dmMain do
+  begin
+    if not(qrBuscaProduto.Active) then
+      Exit;
+
+    dsProdutos.DataSet.Append;
+    dsProdutos.DataSet.FieldByName('codigo').AsInteger :=
+      qrBuscaProduto.FieldByName('codigo').AsInteger;
+    dsProdutos.DataSet.FieldByName('nome').AsString :=
+      qrBuscaProduto.FieldByName('nome').AsString;
+    dsProdutos.DataSet.FieldByName('descricao').AsString :=
+      qrBuscaProduto.FieldByName('descricao').AsString;
+    dsProdutos.DataSet.FieldByName('valor_unitario').AsFloat :=
+      qrBuscaProduto.FieldByName('preco_venda').AsFloat;
+    dsProdutos.DataSet.FieldByName('valor_total').AsFloat :=
+      qrBuscaProduto.FieldByName('preco_venda').AsFloat * StrToFloat(edtBuscaQuantidade.Text);
+    dsProdutos.DataSet.FieldByName('quantidade').AsFloat := StrToFloat(edtBuscaQuantidade.Text);
+    dsProdutos.DataSet.Post;
+  end;
+end;
+
+procedure TfrmMain.btLimparFiltrosClick(Sender: TObject);
+begin
+  edtBuscaProdutoCodigo.Text := '';
+  edtBuscaProdutoNome.Text := '';
+end;
+
+procedure TfrmMain.btLimparPesquisaClienteClick(Sender: TObject);
+begin
+  edtCodigoCliente.Text := '';
+  lcbClientes.DataSource.DataSet.FieldByName('codigo_cliente').AsInteger := -1;
+end;
+
+procedure TfrmMain.btPesquisarProdutoClick(Sender: TObject);
+begin
+  if not(Trim(edtBuscaProdutoCodigo.Text) = '')  then
+  begin
+    with dmMain do
+    begin
+      qrBuscaProduto.SQL.Clear;
+      qrBuscaProduto.SQL.Add('select * from produtos where codigo=' +
+        edtBuscaProdutoCodigo.Text);
+      qrBuscaProduto.Open();
+
+      if(qrBuscaProduto.RowsAffected = 0) then
+      begin
+        TFunctions.ShowMsg('Nenhum produto encontrado.', Application.Handle,
+          MB_ICONINFORMATION);
+        Exit;
+      end;
+
+      gdBuscaProduto.Columns[2].Width := 740;
+      gdBuscaProduto.Columns[0].Title.Caption := 'Código';
+      gdBuscaProduto.Columns[1].Title.Caption := 'Nome';
+      gdBuscaProduto.Columns[2].Title.Caption := 'Descrição';
+      gdBuscaProduto.Columns[3].Title.Caption := 'Preço de Venda';
+    end;
+  end
+  else
+  begin
+    if(Trim(edtBuscaProdutoNome.Text) = '') then
+    begin
+      TFunctions.ShowMsg('Campos de pesquisa vazio.', Application.Handle, MB_ICONINFORMATION);
+      Exit;
+    end;
+
+    if not(TFunctions.VerifyAlphaNumeric(edtBuscaProdutoNome.Text)) then
+    begin
+      TFunctions.ShowMsg('Caracteres não alfa-numéricos não são permitidos.',
+        Application.Handle, MB_ICONINFORMATION);
+      Exit;
+    end;
+
+    with dmMain do
+    begin
+      qrBuscaProduto.SQL.Clear;
+      qrBuscaProduto.SQL.Add('select * from produtos where nome like ' +
+        QuotedStr('%' + edtBuscaProdutoNome.Text + '%'));
+      qrBuscaProduto.Open();
+
+      if(qrBuscaProduto.RowsAffected = 0) then
+      begin
+        TFunctions.ShowMsg('Nenhum produto encontrado.', Application.Handle,
+          MB_ICONINFORMATION);
+        Exit;
+      end;
+
+      gdBuscaProduto.Columns[2].Width := 740;
+      gdBuscaProduto.Columns[0].Title.Caption := 'Código';
+      gdBuscaProduto.Columns[1].Title.Caption := 'Nome';
+      gdBuscaProduto.Columns[2].Title.Caption := 'Descrição';
+      gdBuscaProduto.Columns[3].Title.Caption := 'Preço de Venda';
+    end;
+  end;
+end;
+
+procedure TfrmMain.edtBuscaProdutoCodigoKeyPress(Sender: TObject;
+  var Key: Char);
+begin
+  if(Key = #13) then //Enter charcode
+  begin
+    edtBuscaProdutoNome.Text := '';
+    Self.btPesquisarProdutoClick(Sender);
+  end;
+end;
+
+procedure TfrmMain.edtBuscaProdutoNomeKeyPress(Sender: TObject; var Key: Char);
+begin
+  if(Key = #13) then //Enter charcode
+  begin
+    edtBuscaProdutoCodigo.Text := '';
+    Self.btPesquisarProdutoClick(Sender);
+  end;
+end;
+
+procedure TfrmMain.edtCodigoClienteChange(Sender: TObject);
+var
+  ExibeCampos: Boolean;
+begin
+  lcbClientes.DataSource.DataSet.FieldByName('codigo_cliente').AsString :=
+    edtCodigoCliente.Text;
+
+  ExibeCampos := False;
+
+  if((Trim(edtCodigoCliente.Text) = '') or (StrToInt(edtCodigoCliente.Text) <= 0)) then
+  begin
+    ExibeCampos := True;
+  end;
+
+  btCarregarPedidos.Visible := ExibeCampos;
+  lblPedidoN.Visible := ExibeCampos;
+  edtApagarPedidoNmr.Visible := ExibeCampos;
+  btApagarPedido.Visible := ExibeCampos;
+
+  Self.btCarregarPedidos.Click;
+end;
+
+procedure TfrmMain.FormActivate(Sender: TObject);
+var
+  i: Integer;
+  bk: TBookMark;
+begin
+{$REGION 'Conectando ao banco de dados usando informações do config.ini na pasta raiz'}
+  DBConfig := TFunctions.GetDBConfig();
+
+  (dmMain.dbCon.Params as TFDPhysMySQLConnectionDefParams).DriverID := 'MySQL';
+  (dmMain.dbCon.Params as TFDPhysMySQLConnectionDefParams).Server := DBConfig.Hostname;
+  (dmMain.dbCon.Params as TFDPhysMySQLConnectionDefParams).Port := DBConfig.Port;
+  (dmMain.dbCon.Params as TFDPhysMySQLConnectionDefParams).Database := DBConfig.Database;
+  (dmMain.dbCon.Params as TFDPhysMySQLConnectionDefParams).UserName := DBConfig.Username;
+  (dmMain.dbCon.Params as TFDPhysMySQLConnectionDefParams).Password := DBConfig.Password;
+
+  try
+    dmMain.dbCon.Open();
+  except
+    on E: Exception do
+    begin
+      if not(dmMain.dbCon.Connected) then
+      begin
+        TFunctions.ShowMsg('Erro ao conectar-se ao banco de dados.' + #13 + E.Message,
+          Application.Handle, MB_ICONERROR);
+      end;
+    end;
+  end;
+
+  try
+    dmMain.qrClientes.Open();
+  except
+    on E: Exception do
+    begin
+      TFunctions.ShowMsg('Erro ao pegar informações sobre os clientes.' + #13 + E.Message,
+        Application.Handle, MB_ICONERROR);
+    end;
+  end;
+
+  dmMain.mtbClienteSelecionado.Append;
+
+{$ENDREGION}
+end;
+
+procedure TfrmMain.gdBuscaProdutoDblClick(Sender: TObject);
+begin
+  lbProdutoSelecionado.Caption := Format('[%s - %s]',
+    [dmMain.qrBuscaProduto.FieldByName('nome').AsString,
+    dmMain.qrBuscaProduto.FieldByName('descricao').AsString]);
+  edtBuscaVlrUnitario.Text := FormatFloat('#,0.00;-#,0.00',
+    dmMain.qrBuscaProduto.FieldByName('preco_venda').AsFloat);
+end;
+
+procedure TfrmMain.gdPedidosDblClick(Sender: TObject);
+begin
+  edtApagarPedidoNmr.Text := gdPedidos.DataSource.DataSet.FieldByName('numero').AsString;
+end;
+
+procedure TfrmMain.gdProdutosKeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+begin
+  case Key of
+    46: //Delete charcode
+    begin
+      if(MessageBox(Application.Handle,
+        PChar('Você tem certeza que deseja deletar o produto' + #13 + '[' +
+        dmMain.dsProdutos.DataSet.FieldByName('nome').AsString + ' - ' +
+        dmMain.dsProdutos.DataSet.FieldByName('descricao').AsString + ']' + #13 +
+        ' do pedido de venda?'), 'WK Test', MB_ICONEXCLAMATION+MB_YESNO) = ID_YES) then
+        begin
+          dmMain.dsProdutos.DataSet.Delete;
+          dmMain.dsProdutos.DataSet.Refresh;
+        end;
+    end;
+  end;
+end;
+
+procedure TfrmMain.gdProdutosKeyPress(Sender: TObject; var Key: Char);
+var
+  Codigo: Integer;
+  Descricao: String;
+  Nome: String;
+begin
+  case Key of
+    #13: //Enter charcode
+      begin
+        if not(gdProdutos.DataSource.DataSet.State in [dsEdit, dsInsert]) then
+        gdProdutos.DataSource.DataSet.Edit;
+
+        if(gdProdutos.ReadOnly = False) then
+        begin
+          gdProdutos.DataSource.DataSet.Post;
+
+          if not(gdProdutos.DataSource.DataSet.State in [dsEdit, dsInsert]) then
+            gdProdutos.DataSource.DataSet.Edit;
+
+          gdProdutos.DataSource.DataSet.FieldByName('valor_total').AsFloat :=
+          gdProdutos.DataSource.DataSet.FieldByName('valor_unitario').AsFloat *
+          gdProdutos.DataSource.DataSet.FieldByName('quantidade').AsFloat;
+
+          gdProdutos.DataSource.DataSet.Post;
+          gdProdutos.DataSource.DataSet.Refresh;
+
+          Exit;
+        end;
+
+        gdProdutos.ReadOnly := False;
+      end;
+  end;
+end;
+
+end.

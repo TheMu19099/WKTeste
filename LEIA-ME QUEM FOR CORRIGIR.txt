@@ -1,0 +1,24 @@
+Boa tarde, estou escrevendo isso e acabei agora mesmo (15h00 24/08/2022)
+o teste técnico para a vaga de Desenvolvedor Delphi PJ Pleno.
+
+O arquivo de Dump SQL para criação das tabelas e já inserção dos registros
+está na pasta SQL.
+
+Os arquivos fonte estão na pasta src.
+
+Os arquivos de saída (compilado) estão na pasta Bin.
+
+DCUs estão na pasta DCUs.
+
+
+Projeto finalizado, seguido todas as orientações do PDF.
+Melhoramento em algumas partes para se tornar possível um
+bom funcionamento e bom UX/UI.
+
+Preciso dessa oportunidade, então por favor, vejam que eu tenho
+o conhecimento necessário, apenas me dêem essa chance para continuar
+provando meus conhecimentos dando lucro e retorno à empresa.
+
+Horas totais gastas no projeto: 10 horas.
+linhas totais(utilizando boas práticas POO e CleanCode): 724.
+Linhas por hora: 72,4

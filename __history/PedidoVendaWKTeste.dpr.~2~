@@ -1,0 +1,16 @@
+program PedidoVendaWKTeste;
+
+uses
+  Vcl.Forms,
+  MainForm in 'src\MainForm.pas' {frmMain},
+  MainDataModule in 'src\MainDataModule.pas' {DataModule1: TDataModule};
+
+{$R *.res}
+
+begin
+  Application.Initialize;
+  Application.MainFormOnTaskbar := True;
+  Application.CreateForm(TfrmMain, frmMain);
+  Application.CreateForm(TDataModule1, DataModule1);
+  Application.Run;
+end.

@@ -1,0 +1,124 @@
+unit MainDataModule;
+
+interface
+
+uses
+  System.SysUtils, System.Classes, FireDAC.Stan.Intf, FireDAC.Stan.Option,
+  FireDAC.Stan.Error, FireDAC.UI.Intf, FireDAC.Phys.Intf, FireDAC.Stan.Def,
+  FireDAC.Stan.Pool, FireDAC.Stan.Async, FireDAC.Phys, FireDAC.VCLUI.Wait,
+  Data.DB, FireDAC.Comp.Client, FireDAC.Phys.MySQL, FireDAC.Phys.MySQLDef,
+  FireDAC.Stan.Param, FireDAC.DatS, FireDAC.DApt.Intf, FireDAC.DApt,
+  FireDAC.Comp.DataSet;
+
+type
+  TdmMain = class(TDataModule)
+    dbCon: TFDConnection;
+    qrAux: TFDQuery;
+    dsBuscaProduto: TDataSource;
+    qrBuscaProduto: TFDQuery;
+    mtbProdutos: TFDMemTable;
+    dsProdutos: TDataSource;
+    mtbProdutoscodigo: TIntegerField;
+    mtbProdutosdescricao: TStringField;
+    mtbProdutosnome: TStringField;
+    mtbProdutosvalor_unitario: TFloatField;
+    mtbProdutosvalor_total: TFloatField;
+    mtbProdutosquantidade: TFloatField;
+    qrClientes: TFDQuery;
+    dsClientesSelecionado: TDataSource;
+    mtbProdutoscodigo_cliente: TIntegerField;
+    mtbClienteSelecionado: TFDMemTable;
+    mtbClienteSelecionadocodigo_cliente: TIntegerField;
+    dsClientes: TDataSource;
+    procedure mtbProdutosAfterPost(DataSet: TDataSet);
+    procedure mtbProdutosBeforeEdit(DataSet: TDataSet);
+    procedure mtbProdutosBeforePost(DataSet: TDataSet);
+    procedure mtbClienteSelecionadoAfterPost(DataSet: TDataSet);
+    procedure dsClientesSelecionadoDataChange(Sender: TObject; Field: TField);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+     A: TFDPhysMySQLConnectionDefParams;
+  end;
+
+var
+  dmMain: TdmMain;
+  CodigoEdited: Integer;
+  NomeEdited: String;
+  DescEdited: String;
+
+implementation
+
+uses
+  MainForm, Functions;
+
+{%CLASSGROUP 'Vcl.Controls.TControl'}
+
+{$R *.dfm}
+
+procedure TdmMain.dsClientesSelecionadoDataChange(Sender: TObject;
+  Field: TField);
+begin
+  TFunctions.ShowMsg(mtbClienteSelecionado.FieldByName('codigo_cliente').AsString, 0, 0);
+end;
+
+procedure TdmMain.mtbClienteSelecionadoAfterPost(DataSet: TDataSet);
+begin
+  DataSet.Edit;
+end;
+
+procedure TdmMain.mtbProdutosAfterPost(DataSet: TDataSet);
+var
+  i: Integer;
+  vlrTotal: Double;
+  bk: TBookMark;
+begin
+  frmMain.gdProdutos.ReadOnly := True;
+
+  DataSet.Refresh;
+
+  if(DataSet.RecordCount = 0) then
+    Exit;
+
+  bk := DataSet.GetBookmark;
+  DataSet.DisableControls;
+
+  DataSet.First;
+
+  for I := 0 to DataSet.RecordCount-1 do
+  begin
+    vlrTotal := vlrTotal + DataSet.FieldByName('valor_total').AsFloat;
+
+    DataSet.Next;
+  end;
+
+  DataSet.EnableControls;
+  DataSet.GotoBookmark(bk);
+
+  frmMain.statusBar.Panels[0].Text := Format('Valor Total do pedido: R$ %n  ',
+    [vlrTotal]);
+end;
+
+procedure TdmMain.mtbProdutosBeforeEdit(DataSet: TDataSet);
+begin
+  CodigoEdited := DataSet.FieldByName('codigo').AsInteger;
+  NomeEdited := DataSet.FieldByName('nome').AsString;
+  DescEdited := DataSet.FieldByName('descricao').AsString;
+end;
+
+procedure TdmMain.mtbProdutosBeforePost(DataSet: TDataSet);
+begin
+  if(CodigoEdited <> 0) then
+  begin //forma possível utilizando tabela temporária na memoria com o grid de produtos
+        //para que não seja possível alterar as outras informações sobre o produto
+        //que estão vindo da tabela de produtos do MySQL
+    DataSet.FieldByName('codigo').AsInteger := CodigoEdited;
+    DataSet.FieldByName('nome').AsString := NomeEdited;
+    DataSet.FieldByName('descricao').AsString := DescEdited;
+
+    CodigoEdited := 0;
+  end;
+end;
+
+end.
